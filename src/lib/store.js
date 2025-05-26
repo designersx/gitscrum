@@ -1,5 +1,5 @@
 import axios from "axios";
-const URL = "http://localhost:8081";
+const URL = "https://git.truet.net";
 export const getTaskList = async (req, res) => {
   try {
     const response = await axios.get(`${URL}/all-tables-data`);

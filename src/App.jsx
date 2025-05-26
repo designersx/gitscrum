@@ -186,7 +186,7 @@ export default function App() {
     });
 
     try {
-      await axios.post("http://localhost:8081/get-data-button", payload, {
+      await axios.post("https://git.truet.net/get-data-button", payload, {
         headers: { "Content-Type": "application/json" },
       });
       await fetchData();
@@ -516,7 +516,7 @@ export default function App() {
 
       // 2) Call your API
       try {
-        await axios.put("http://localhost:8081/update-timelog-status", {
+        await axios.put("https://git.truet.net/update-timelog-status", {
           project_name: projectName,
           id,
           timelog_status: newStatus,
