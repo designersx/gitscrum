@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from "react";
 import Header from "./components/Header";
 import FilterBar from "./components/FilterBar";
@@ -62,6 +61,7 @@ export default function App() {
 
   // --- syncing/loading state ---
   const [loading, setLoading] = useState(false);
+  const [loader, setLoader] = useState(false);
 
   // --- TODO‐TABLE state / persistence ---
   const [showTodoTable, setShowTodoTable] = useState(() => {
@@ -145,19 +145,19 @@ export default function App() {
 
   // --- fetch & normalize ---
   const fetchData = useCallback(async () => {
-    const apiData = await getTaskList();
-    const normalized = normalizeData(apiData);
-    // dedupe by taskName
-    // const uniqueData = normalized.filter(
-    //   (item, idx, arr) =>
-    //     arr.findIndex(
-    //       (x) => x.userName === item.userName && x.taskName === item.taskName
-    //     ) === idx
-    // );
-
-    setData(normalized);
-    setFilteredData(normalized);
+    setLoader(true);
+    try {
+      const apiData = await getTaskList();
+      const normalized = normalizeData(apiData);
+      setData(normalized);
+      setFilteredData(normalized);
+    } catch (err) {
+      console.error("Failed to fetch tasks:", err);
+    } finally {
+      setLoader(false);
+    }
   }, []);
+
   useEffect(() => {
     fetchData();
   }, [fetchData]);
@@ -720,20 +720,51 @@ export default function App() {
 
           {/* Main vs Todo table */}
           {!showTodoTable ? (
-            <>
-              <Table
-                data={currentItems}
-                onTimelogStatusChange={handleTimelogStatusChange}
-              />
-              <Pagination
-                currentPage={currentPage}
-                totalPages={totalPages}
-                paginate={setCurrentPage}
-                totalItems={filteredData.length}
-                indexOfFirstItem={idxFirst}
-                indexOfLastItem={idxLast}
-              />
-            </>
+            loader ? (
+              <div className="w-full text-center py-10">
+                {/* spinner SVG (Tailwind + animate-spin) */}
+                <svg
+                  className="animate-spin h-8 w-8 mx-auto"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  />
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8v8H4z"
+                  />
+                </svg>
+                <p className="mt-2 text-gray-600">Loading…</p>
+              </div>
+            ) : currentItems.length === 0 ? (
+              <div className="w-full text-center py-10 text-gray-500">
+                No data found
+              </div>
+            ) : (
+              <>
+                <Table
+                  data={currentItems}
+                  onTimelogStatusChange={handleTimelogStatusChange}
+                />
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  paginate={setCurrentPage}
+                  totalItems={filteredData.length}
+                  indexOfFirstItem={idxFirst}
+                  indexOfLastItem={idxLast}
+                />
+              </>
+            )
           ) : (
             <div className="mt-8 bg-white p-4 rounded shadow">
               {/* <h2 className="text-xl mb-4">Todo Tasks by User</h2> */}
