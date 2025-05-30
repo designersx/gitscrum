@@ -32,7 +32,7 @@ export default function CheckboxDropdown({
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="w-full text-left border rounded px-2 py-1"
+        className="w-full bg-white text-left border rounded px-2 py-1"
       >
         {label}:{" "}
         {selectedOptions.length === 0

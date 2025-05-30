@@ -19,26 +19,30 @@ import { FaSyncAlt } from "react-icons/fa";
 import { Filter } from "lucide-react";
 import "../../App.css";
 import { Menu as MenuIcon, X as CloseIcon } from "lucide-react";
+import CheckboxDropdown from "../../components/CheckboxDropdown";
 
 function normalizeData(data) {
-  return data.map((item) => ({
-    id: item.id,
-    projectName: item.project_name,
-    userName: item.user_name,
-    taskName: item.task_title,
-    sprintName: item.sprint || "--",
-    estimate: item.estimate,
-    taskStartDate: item.task_start,
-    taskDueDate: item.task_due,
-    actualEffortStart: item.actual_effort_start,
-    actualEffortEnd: item.actual_effort_end,
-    actualSpent: item.actual_spent_hours,
-    taskStatus: item.status,
-    timelog_status: item.timelog_status,
-    comment_id: item.comment_id,
-    comments: item.comments || [],
-  }));
+  return data
+    .filter((item) => item.project_name !== null && item.project_name !== undefined) // Skip if project_name is null or undefined
+    .map((item) => ({
+      id: item.id,
+      projectName: item.project_name,
+      userName: item.user_name,
+      taskName: item.task_title,
+      sprintName: item.sprint || "--",
+      estimate: item.estimate,
+      taskStartDate: item.task_start,
+      taskDueDate: item.task_due,
+      actualEffortStart: item.actual_effort_start,
+      actualEffortEnd: item.actual_effort_end,
+      actualSpent: item.actual_spent_hours,
+      taskStatus: item.status,
+      timelog_status: item.timelog_status,
+      comment_id: item.comment_id,
+      comments: item.comments || [],
+    }));
 }
+
 function extractDate(dateString) {
   return dateString ? dateString.split("T")[0] : "";
 }
@@ -77,8 +81,9 @@ export default function SheetPage() {
     return s ? JSON.parse(s) : false;
   });
   const [todoFilters, setTodoFilters] = useState({
-    userName: "",
-    projectName: "",
+    userName: [], // Initialize as empty array
+    projectName: [], // Initialize as empty array
+    taskStatus: [], // Initialize as empty array
   });
   const [todoPage, setTodoPage] = useState(1);
   const todoPerPage = 50;
@@ -419,17 +424,20 @@ export default function SheetPage() {
     // Check if the task's status is in the desired statuses
     const statusMatch = desiredStatuses.includes(t.taskStatus);
 
-    // Check for username filter
+    // Check if the task's userName is in the selected userNames (multi-selection)
     const userNameMatch =
-      !todoFilters.userName || t.userName === todoFilters.userName;
+      todoFilters.userName.length === 0 ||
+      todoFilters.userName.includes(t.userName);
 
-    // Check for project filter
+    // Check if the task's projectName is in the selected projectNames (multi-selection)
     const projectNameMatch =
-      !todoFilters.projectName || t.projectName === todoFilters.projectName;
+      todoFilters.projectName.length === 0 ||
+      todoFilters.projectName.includes(t.projectName);
 
-    // Check for taskStatus filter (if it's set)
+    // Check if the task's taskStatus is in the selected taskStatus (multi-selection)
     const taskStatusMatch =
-      !todoFilters.taskStatus || t.taskStatus === todoFilters.taskStatus;
+      todoFilters?.taskStatus?.length === 0 ||
+      todoFilters?.taskStatus?.includes(t.taskStatus);
 
     // Return true if all conditions match
     return statusMatch && userNameMatch && projectNameMatch && taskStatusMatch;
@@ -473,7 +481,11 @@ export default function SheetPage() {
 
   // --- Todo Clear + Download ---
   const handleTodoClear = () => {
-    setTodoFilters({ userName: "", projectName: "" });
+    setTodoFilters({
+      userName: [], // Reset to empty array
+      projectName: [], // Reset to empty array
+      taskStatus: [], // Reset to empty array
+    });
     setTodoPage(1);
   };
 
@@ -642,66 +654,42 @@ export default function SheetPage() {
           {/* Top action bar */}
 
           {/* Top action bar */}
-          <div className="z-0 flex items-center space-x-3 mb-4 table-todo-header">
+          <div className="z-10 flex items-center space-x-3 mb-4 table-todo-header">
             {showTodoTable ? (
               <>
                 {/* Todo filters */}
-                <select
-                  value={todoFilters.userName}
-                  onChange={(e) =>
-                    setTodoFilters((f) => ({ ...f, userName: e.target.value }))
-                  }
-                  className="px-3 py-2 border rounded"
-                >
-                  <option value="">All Users</option>
-                  {[...new Set(filteredData.map((d) => d.userName))].map(
-                    (u) => (
-                      <option key={u} value={u}>
-                        {u}
-                      </option>
-                    )
-                  )}
-                </select>
-                <select
-                  value={todoFilters.projectName}
-                  onChange={(e) =>
-                    setTodoFilters((f) => ({
-                      ...f,
-                      projectName: e.target.value,
-                    }))
-                  }
-                  className="px-3 py-2 border rounded"
-                >
-                  <option value="">All Projects</option>
-                  {[
-                    ...new Set(
-                      filteredData
-                        .filter((d) => d.projectName)
-                        .map((d) => d.projectName)
-                    ),
-                  ].map((p) => (
-                    <option key={p} value={p}>
-                      {p}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  value={todoFilters.taskStatus}
-                  onChange={(e) =>
-                    setTodoFilters((f) => ({
-                      ...f,
-                      taskStatus: e.target.value,
-                    }))
-                  }
-                  className="px-3 py-2 border rounded"
-                >
-                  <option value="">All Statuses</option>
-                  {["Todo", "In Progress", "Dev QC"].map((status) => (
-                    <option key={status} value={status}>
-                      {status}
-                    </option>
-                  ))}
-                </select>
+                <div style={{ width: "15%" }}>
+                  <CheckboxDropdown
+                    label="User Name"
+                    options={[...new Set(filteredData.map((d) => d.userName))]} // Get unique user names
+                    selectedOptions={todoFilters.userName}
+                    onChange={(vals) =>
+                      setTodoFilters((prev) => ({ ...prev, userName: vals }))
+                    }
+                  />
+                </div>
+                <div style={{ width: "18%" }}>
+                  <CheckboxDropdown
+                    label="Project Name"
+                    options={[
+                      ...new Set(filteredData.map((d) => d.projectName)),
+                    ]} // Get unique project names
+                    selectedOptions={todoFilters.projectName}
+                    onChange={(vals) =>
+                      setTodoFilters((prev) => ({ ...prev, projectName: vals }))
+                    }
+                  />
+                </div>
+                <div style={{ width: "15%" }}>
+                  <CheckboxDropdown
+                    label="Task Status"
+                    options={["Todo", "In Progress", "Dev QC"]} // Example of task statuses
+                    selectedOptions={todoFilters.taskStatus}
+                    onChange={(vals) =>
+                      setTodoFilters((prev) => ({ ...prev, taskStatus: vals }))
+                    }
+                  />
+                </div>
 
                 {/* Sync */}
                 <button
@@ -772,7 +760,6 @@ export default function SheetPage() {
                 >
                   Todo
                 </button>
-                
               </>
             )}
           </div>
@@ -825,99 +812,108 @@ export default function SheetPage() {
               </>
             )
           ) : (
-            <div className="mt-8 bg-white p-4 rounded shadow">
-              {/* <h2 className="text-xl mb-4">Todo Tasks by User</h2> */}
+            <>
+              <div
+                style={{ maxHeight: "56vh" }}
+                className="mt-8 bg-white p-0 rounded shadow"
+              >
+                {/* <h2 className="text-xl mb-4">Todo Tasks by User</h2> */}
 
-              {/* Todo‐specific filters */}
+                {/* Todo‐specific filters */}
 
-              {/* Todo table */}
-              <table className="min-w-full border-collapse">
-                <thead className="todo-thead">
-                  <tr className="bg-gray-100">
-                    <th className="border px-3 py-2 text-left">User</th>
-                    <th className="border px-3 py-2">Total Hrs (Est)</th>
-                    <th className="border px-3 py-2">Task</th>
-                    <th className="border px-3 py-2">Project</th>
-                    <th className="border px-3 py-2">Start Date</th>
-                    <th className="border px-3 py-2">End Date</th>
-                    <th className="border px-3 py-2">Estimate</th>
-                    <th className="border px-3 py-2">Task Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {pagedTodos.length === 0 ? (
-                    <tr>
-                      <td colSpan={8} className="border px-3 py-2 text-center">
-                        No data found
-                      </td>
+                {/* Todo table */}
+                <table className="min-w-full border-collapse">
+                  <thead className="todo-thead">
+                    <tr className="bg-gray-100">
+                      <th className="border px-3 py-2 text-left">User</th>
+                      <th className="border px-3 py-2">Total Hrs (Est)</th>
+                      <th className="border px-3 py-2">Task</th>
+                      <th className="border px-3 py-2">Project</th>
+                      <th className="border px-3 py-2">Start Date</th>
+                      <th className="border px-3 py-2">End Date</th>
+                      <th className="border px-3 py-2">Estimate</th>
+                      <th className="border px-3 py-2">Task Status</th>
                     </tr>
-                  ) : (
-                    (() => {
-                      // group only the paged tasks
-                      const grp = pagedTodos.reduce((acc, t) => {
-                        (acc[t.userName] = acc[t.userName] || []).push(t);
-                        return acc;
-                      }, {});
-                      return Object.entries(grp).flatMap(([user, tasks]) => {
-                        // sum estimates across this page for this user
-                        const total = tasks
-                          .reduce(
-                            (s, t) => s + (parseFloat(t.estimate) || 0),
-                            0
-                          )
-                          .toFixed(1);
-                        return tasks.map((t, i) => (
-                          <tr key={`${user}-${t.id}`}>
-                            {i === 0 && (
-                              <td
-                                rowSpan={tasks.length}
-                                className="border px-3 py-2 font-semibold align-top"
-                              >
-                                {user}
+                  </thead>
+                  <tbody>
+                    {pagedTodos.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={8}
+                          className="border px-3 py-2 text-center"
+                        >
+                          No data found
+                        </td>
+                      </tr>
+                    ) : (
+                      (() => {
+                        // group only the paged tasks
+                        const grp = pagedTodos.reduce((acc, t) => {
+                          (acc[t.userName] = acc[t.userName] || []).push(t);
+                          return acc;
+                        }, {});
+                        return Object.entries(grp).flatMap(([user, tasks]) => {
+                          // sum estimates across this page for this user
+                          const total = tasks
+                            .reduce(
+                              (s, t) => s + (parseFloat(t.estimate) || 0),
+                              0
+                            )
+                            .toFixed(1);
+                          return tasks.map((t, i) => (
+                            <tr key={`${user}-${t.id}`}>
+                              {i === 0 && (
+                                <td
+                                  rowSpan={tasks.length}
+                                  className="border px-3 py-2 font-semibold align-top"
+                                >
+                                  {user}
+                                </td>
+                              )}
+                              {i === 0 && (
+                                <td
+                                  rowSpan={tasks.length}
+                                  className="border px-3 py-2 align-top"
+                                >
+                                  {total}
+                                </td>
+                              )}
+                              <td className="border px-3 py-2 relative">
+                                <div className="tooltip-container">
+                                  {t.taskName.length > 15
+                                    ? t.taskName.slice(0, 15) + "…"
+                                    : t.taskName}
+                                  {t.taskName.length > 15 && (
+                                    <span className="tooltip-text">
+                                      {t.taskName}
+                                    </span>
+                                  )}
+                                </div>
                               </td>
-                            )}
-                            {i === 0 && (
-                              <td
-                                rowSpan={tasks.length}
-                                className="border px-3 py-2 align-top"
-                              >
-                                {total}
+
+                              <td className="border px-3 py-2">
+                                {t.projectName}
                               </td>
-                            )}
-                            <td className="border px-3 py-2 relative">
-                              <div className="tooltip-container">
-                                {t.taskName.length > 15
-                                  ? t.taskName.slice(0, 15) + "…"
-                                  : t.taskName}
-                                {t.taskName.length > 15 && (
-                                  <span className="tooltip-text">
-                                    {t.taskName}
-                                  </span>
-                                )}
-                              </div>
-                            </td>
+                              <td className="border px-3 py-2">
+                                {extractDate(t.taskStartDate) || "--"}
+                              </td>
+                              <td className="border px-3 py-2">
+                                {extractDate(t.taskDueDate) || "--"}
+                              </td>
+                              <td className="border px-3 py-2">{t.estimate}</td>
+                              <td className="border px-3 py-2">
+                                {t.taskStatus}
+                              </td>
+                            </tr>
+                          ));
+                        });
+                      })()
+                    )}
+                  </tbody>
+                </table>
 
-                            <td className="border px-3 py-2">
-                              {t.projectName}
-                            </td>
-                            <td className="border px-3 py-2">
-                              {extractDate(t.taskStartDate) || "--"}
-                            </td>
-                            <td className="border px-3 py-2">
-                              {extractDate(t.taskDueDate) || "--"}
-                            </td>
-                            <td className="border px-3 py-2">{t.estimate}</td>
-                            <td className="border px-3 py-2">{t.taskStatus}</td>
-                          </tr>
-                        ));
-                      });
-                    })()
-                  )}
-                </tbody>
-              </table>
-
-              {/* Todo pagination */}
-              <div className="pagi-main">
+                {/* Todo pagination */}
+                {/* <div className="pagi-main">
                 <Pagination
                   currentPage={todoPage}
                   totalPages={todoTotalPages}
@@ -929,8 +925,20 @@ export default function SheetPage() {
                     allTodos.length
                   )}
                 />
+              </div> */}
               </div>
-            </div>
+              <Pagination
+                currentPage={todoPage}
+                totalPages={todoTotalPages}
+                paginate={setTodoPage}
+                totalItems={allTodos.length}
+                indexOfFirstItem={(todoPage - 1) * todoPerPage + 1}
+                indexOfLastItem={Math.min(
+                  todoPage * todoPerPage,
+                  allTodos.length
+                )}
+              />
+            </>
           )}
         </div>
       </div>
