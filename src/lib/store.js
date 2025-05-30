@@ -1,6 +1,6 @@
 import axios from "axios";
-// const URL = "https://git.truet.net";
-const URL = "http://localhost:6619"
+const URL = "https://git.truet.net";
+// const URL = "http://localhost:6619"
 export const getTaskList = async (req, res) => {
   try {
     const response = await axios.get(`${URL}/get-all-data-timesheet`);
