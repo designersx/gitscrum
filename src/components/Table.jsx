@@ -4,7 +4,7 @@ export default function Table({ data, onTimelogStatusChange }) {
   return (
     <div
       className="   
-     max-h-[57vh]
+     max-h-[56vh]
      overflow-y-auto    
      overflow-x-auto   
      bg-white shadow-md rounded-lg mb-6
