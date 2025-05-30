@@ -12,7 +12,7 @@ export default function Header() {
   };
 
   return (
-    <header className="mb-8">
+    <header className="mb-4">
       <div className="flex items-center justify-between px-4 sm:px-8">
         {/* Left: Logo and title */}
         <div className="flex items-center">
@@ -20,7 +20,7 @@ export default function Header() {
             <img
               src="/logo-without-lined-black.png"
               alt="Logo"
-              className="h-14"
+              className="h-10"
             />
           </h1>
         </div>
