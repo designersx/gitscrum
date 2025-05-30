@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Code } from "lucide-react";
+import { sendOTP, verifyOTP } from "../../lib/store";
 
 const Login = () => {
   const [email, setEmail] = useState("");
@@ -29,19 +30,14 @@ const Login = () => {
         setLoading(false);
         return;
       }
-      if (!isDesignersXEmail(email)) {
-        setError("Only DesignersX email addresses are allowed.");
-        setLoading(false);
-        return;
-      }
+      //   if (!isDesignersXEmail(email)) {
+      //     setError("Only DesignersX email addresses are allowed.");
+      //     setLoading(false);
+      //     return;
+      //   }
 
       try {
-        const res = await fetch("https://git.truet.net/api/send-otp", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email }),
-        });
-
+        const res = await sendOTP(email);
         const data = await res.json();
 
         if (!res.ok) {
@@ -57,12 +53,7 @@ const Login = () => {
       }
     } else {
       try {
-        const res = await fetch("https://git.truet.net/api/verify-otp", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, otp }),
-        });
-
+        const res = await verifyOTP(email, otp);
         const data = await res.json();
 
         if (!res.ok || !data.status) {

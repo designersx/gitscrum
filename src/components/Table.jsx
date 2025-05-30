@@ -1,9 +1,10 @@
 import "../App.css";
 export default function Table({ data, onTimelogStatusChange }) {
+  console.log("data", data);
   return (
     <div
       className="   
-     max-h-[70vh]
+     max-h-[57vh]
      overflow-y-auto    
      overflow-x-auto   
      bg-white shadow-md rounded-lg mb-6
@@ -94,14 +95,10 @@ export default function Table({ data, onTimelogStatusChange }) {
                   {item.taskDueDate ? item.taskDueDate.split("T")[0] : "--"}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {item.actualEffortStart
-                    ? item.actualEffortStart.split("T")[0]
-                    : "--"}
+                  {item.actualEffortStart || "--"}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {item.actualEffortEnd
-                    ? item.actualEffortEnd.split("T")[0]
-                    : "--"}
+                  {item.actualEffortEnd || "--"}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                   {item.actualSpent || "--"}
@@ -114,19 +111,19 @@ export default function Table({ data, onTimelogStatusChange }) {
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm">
                   <select
-                    value={item.timelog_status || "Pending"}
+                    value={(item?.timelog_status || "pending").toLowerCase()}
                     className="border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
                     onChange={(e) =>
                       onTimelogStatusChange(
                         item.projectName,
-                        item.id,
+                        item.comment_id,
                         e.target.value
                       )
                     }
                   >
-                    <option value="Pending">Pending</option>
-                    <option value="Approved">Approved</option>
-                    <option value="Rejected">Rejected</option>
+                    <option value="pending">Pending</option>
+                    <option value="approved">Approved</option>
+                    <option value="rejected">Rejected</option>
                   </select>
                 </td>
                 <td className="px-6 py-4 whitespace-normal text-sm text-gray-900">
@@ -134,14 +131,12 @@ export default function Table({ data, onTimelogStatusChange }) {
                     <div className="relative group inline-block max-w-xs">
                       {/* snippet: first comment + “+N more” */}
                       <p className="truncate">
-                        {`1. ${
+                        {` ${
                           item.comments[0].text.length > 20
                             ? item.comments[0].text.slice(0, 20) + "…"
                             : item.comments[0].text
-                        } (${
-                          // truncate to one decimal: floor(hours * 10) / 10
-                          Math.floor(item.comments[0].hours * 10) / 10
-                        }h)`}
+                        } 
+                            `}
                         {item.comments.length > 1 && (
                           <span className="text-gray-500">{` +${
                             item.comments.length - 1
@@ -150,12 +145,12 @@ export default function Table({ data, onTimelogStatusChange }) {
                       </p>
 
                       {/* full list on hover, numbered + truncated */}
-                      <div className="absolute z-10 hidden w-64 p-2 mt-1 bg-gray-800 text-white text-xs rounded whitespace-normal group-hover:block">
+                      <div className="absolute z-10 hidden w-44 p-2 mt-1 bg-gray-800 text-white text-xs rounded whitespace-normal group-hover:block">
                         {item.comments.map((c, i) => {
                           const h = Math.floor(c.hours * 10) / 10;
                           return (
                             <p key={i} className="mb-1">
-                              {`${i + 1}. ${c.text} (${h}h)`}
+                              {`${c.text} `}
                             </p>
                           );
                         })}

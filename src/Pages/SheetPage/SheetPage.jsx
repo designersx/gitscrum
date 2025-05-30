@@ -3,7 +3,12 @@ import Header from "../../components/Header";
 import FilterBar from "../../components/FilterBar";
 import Pagination from "../../components/Pagination";
 import Table from "../../components/Table";
-import { getTaskList } from "../../lib/store";
+import {
+  getDataButton,
+  getTaskList,
+  getTodoList,
+  updateTimelogStatus,
+} from "../../lib/store";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import axios from "axios";
@@ -30,6 +35,7 @@ function normalizeData(data) {
     actualSpent: item.actual_spent_hours,
     taskStatus: item.status,
     timelog_status: item.timelog_status,
+    comment_id: item.comment_id,
     comments: item.comments || [],
   }));
 }
@@ -40,15 +46,16 @@ function extractDate(dateString) {
 export default function SheetPage() {
   // --- main data + filters + paging ---
   const [data, setData] = useState([]);
+  const [todoData, setTodoData] = useState([]);
 
   const [filteredData, setFilteredData] = useState([]);
-  //   console.log(filteredData, "filtered Data");
+  // console.log(filteredData, "filtered Data");
   const [filters, setFilters] = useState(() => {
     const saved = localStorage.getItem("filters");
     return saved
       ? JSON.parse(saved)
       : {
-          projectName: "",
+          projectName: [], // changed from "" to []
           userName: "",
           startDate: "",
           endDate: "",
@@ -141,6 +148,11 @@ export default function SheetPage() {
         apiId: "40d5eae7922e3942699b3e290c48860e5f3c",
         table: "tiwil_app",
       },
+      {
+        projectKey: "9afea87a88c06848998b0938c0bd9df17e3d",
+        apiId: "40d5eae7922e3942699b3e290c48860e5f3c",
+        table: "REXPTINX",
+      },
     ],
   };
 
@@ -149,6 +161,7 @@ export default function SheetPage() {
     setLoader(true);
     try {
       const apiData = await getTaskList();
+      console.log("dasdadadadsa", apiData);
       const normalized = normalizeData(apiData);
       setData(normalized);
       setFilteredData(normalized);
@@ -166,7 +179,7 @@ export default function SheetPage() {
   // --- global Sync button ---
   const onSync = useCallback(async () => {
     const { isConfirmed } = await Swal.fire({
-      title: "This sync can take 5-6 minutes",
+      title: "This sync can take 8-10 minutes",
       text: "Do you want to continue?",
       icon: "warning",
       showCancelButton: true,
@@ -186,10 +199,10 @@ export default function SheetPage() {
       didOpen: () => Swal.showLoading(),
     });
 
+    console.log("payload", payload);
+
     try {
-      await axios.post("https://git.truet.net/get-data-button", payload, {
-        headers: { "Content-Type": "application/json" },
-      });
+      await getDataButton(payload);
       await fetchData();
       Swal.close();
       Swal.fire({
@@ -206,14 +219,16 @@ export default function SheetPage() {
   // --- main‐table filter logic ---
   useEffect(() => {
     let result = data;
-    if (filters.projectName) {
-      result = result.filter((t) => t.projectName === filters.projectName);
+    if (filters.projectName && filters.projectName.length > 0) {
+      result = result.filter((t) =>
+        filters.projectName.includes(t.projectName)
+      );
     }
-    if (filters.userName) {
-      result = result.filter((t) => t.userName === filters.userName);
+    if (filters.userName && filters.userName.length > 0) {
+      result = result.filter((t) => filters.userName.includes(t.userName));
     }
-    if (filters.taskStatus) {
-      result = result.filter((t) => t.taskStatus === filters.taskStatus);
+    if (filters.taskStatus && filters.taskStatus.length > 0) {
+      result = result.filter((t) => filters.taskStatus.includes(t.taskStatus));
     }
     if (filters.dateRange) {
       const days = Number(filters.dateRange);
@@ -282,21 +297,24 @@ export default function SheetPage() {
 
   const handleDownload = () => {
     if (!filteredData.length) return;
-    console.log("filtered =D", filteredData);
+    // console.log("filtered =D", filteredData);
 
     const dataForExport = filteredData.map((item) => {
       const MAX_CELL_LENGTH = 32767;
       const roundDownToTenth = (num) => Math.floor(num * 10) / 10;
 
-      const commentsText = item.comments
-        ? item.comments
-            .map((comment, index) => {
-              const roundedHours = roundDownToTenth(comment.hours);
-              return `${index + 1}. ${comment.text} (${roundedHours}h)`;
-            })
-            .join("\n")
-            .slice(0, MAX_CELL_LENGTH - 3) + ""
-        : "";
+      // const commentsText = item.comments
+      //   ? item.comments
+      //       .map((comment, index) => {
+      //         const roundedHours = roundDownToTenth(comment.hours);
+      //         return `${index + 1}. ${comment.text} (${roundedHours}h)`;
+      //       })
+      //       .join("\n")
+      //       .slice(0, MAX_CELL_LENGTH - 3) + ""
+      //   : "";
+
+      const comment = item.comments && item.comments[0];
+      console.log("dasd", item);
 
       return {
         projectName: item.projectName,
@@ -307,20 +325,20 @@ export default function SheetPage() {
         estimate: item.estimate,
         taskStartDate: item.taskStartDate
           ? item.taskStartDate.split("T")[0]
-          : "",
+          : "--",
         taskDueDate: item.taskDueDate ? item.taskDueDate.split("T")[0] : "",
         actualEffortStart: item.actualEffortStart
-          ? item.actualEffortStart.split("T")[0]
-          : "",
-        actualEffortEnd: item.actualEffortEnd
-          ? item.actualEffortEnd.split("T")[0]
-          : "",
-        actualSpent: convertTimeToDecimal(item.actualSpent),
+          ? item.actualEffortStart
+          : "--",
+        actualEffortEnd: item.actualEffortEnd ? item.actualEffortEnd : "",
+        actualSpent: item.actualSpent ? item.actualSpent : "--",
         timelog_status: item.timelog_status ? item.timelog_status : "Pending",
-        Comments: commentsText, // <-- Include combined comments text here
+        Comments: item.comments[0]?.text || "--", // <-- Include combined comments text here
         "": "",
       };
     });
+
+    // console.log("dataa",dataForExport)
 
     // Convert data to a worksheet
     const worksheet = XLSX.utils.json_to_sheet(dataForExport);
@@ -355,13 +373,27 @@ export default function SheetPage() {
     // Trigger the download
     saveAs(blob, "TimeSheetData.xlsx");
   };
+  const fetchTodoData = useCallback(async () => {
+    try {
+      setLoader(true);
+      const response = await getTodoList(); // replace with your actual endpoint
+      const normalized = normalizeData(response.data);
+      setTodoData(normalized);
+    } catch (error) {
+      console.error("Failed to fetch Todo data:", error);
+      setTodoData([]);
+    } finally {
+      setLoader(false);
+    }
+  }, []);
 
   // --- toggle Todo view & persist highlight ---
-  const toggleTodo = useCallback(() => {
+  const toggleTodo = useCallback(async () => {
     setShowTodoTable((v) => {
       const next = !v;
-      localStorage.setItem("showTodoTable", JSON.stringify(next));
       if (next) {
+        // Fetch Todo data from your API here
+        fetchTodoData();
         setTodoFilters({ userName: "", projectName: "", taskStatus: "" });
         setFilters({
           projectName: "",
@@ -375,16 +407,15 @@ export default function SheetPage() {
         setCurrentPage(1);
         localStorage.removeItem("filters");
       }
-
       return next;
     });
-  }, [data, setFilters, setFilteredData, setCurrentPage]);
+  }, [data]);
 
   // --- Extract and page only “Todo” tasks, after Todo‐filters ---
   // new: only keep tasks whose status is one of these four
   const desiredStatuses = ["Todo", "In Progress", "Dev QC"];
 
-  const allTodos = filteredData.filter((t) => {
+  const allTodos = todoData.filter((t) => {
     // Check if the task's status is in the desired statuses
     const statusMatch = desiredStatuses.includes(t.taskStatus);
 
@@ -525,6 +556,7 @@ export default function SheetPage() {
 
   const handleTimelogStatusChange = useCallback(
     async (projectName, id, newStatus) => {
+      console.log("sd", projectName, id, newStatus);
       // 1) Ask for confirmation
       const { isConfirmed } = await Swal.fire({
         title: `Change timelog status?`,
@@ -538,11 +570,7 @@ export default function SheetPage() {
 
       // 2) Call your API
       try {
-        await axios.put("https://git.truet.net/update-timelog-status", {
-          project_name: projectName,
-          id,
-          timelog_status: newStatus,
-        });
+        await updateTimelogStatus(projectName, id, newStatus);
         // 3) Success feedback
         Swal.fire({
           title: "Updated!",
@@ -588,7 +616,11 @@ export default function SheetPage() {
           layout="vertical"
           filters={filters}
           onFilterChange={handleFilterChange}
-          projectNames={[...new Set(data.map((d) => d.projectName))]}
+          projectNames={[
+            ...new Set(
+              data.filter((d) => d.projectName).map((d) => d.projectName)
+            ),
+          ]}
           userNames={[...new Set(data.map((d) => d.userName))]}
           onReload={handleReload}
           onDownload={handleDownload}
@@ -610,7 +642,7 @@ export default function SheetPage() {
           {/* Top action bar */}
 
           {/* Top action bar */}
-          <div className="flex items-center space-x-3 mb-4 table-todo-header">
+          <div className="z-0 flex items-center space-x-3 mb-4 table-todo-header">
             {showTodoTable ? (
               <>
                 {/* Todo filters */}
@@ -641,13 +673,17 @@ export default function SheetPage() {
                   className="px-3 py-2 border rounded"
                 >
                   <option value="">All Projects</option>
-                  {[...new Set(filteredData.map((d) => d.projectName))].map(
-                    (p) => (
-                      <option key={p} value={p}>
-                        {p}
-                      </option>
-                    )
-                  )}
+                  {[
+                    ...new Set(
+                      filteredData
+                        .filter((d) => d.projectName)
+                        .map((d) => d.projectName)
+                    ),
+                  ].map((p) => (
+                    <option key={p} value={p}>
+                      {p}
+                    </option>
+                  ))}
                 </select>
                 <select
                   value={todoFilters.taskStatus}
@@ -736,6 +772,7 @@ export default function SheetPage() {
                 >
                   Todo
                 </button>
+                
               </>
             )}
           </div>

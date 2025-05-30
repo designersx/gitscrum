@@ -1,8 +1,9 @@
 import { Download, RotateCcw } from "lucide-react";
 import { FaSyncAlt } from "react-icons/fa";
+import CheckboxDropdown from "./CheckboxDropdown";
 
 export default function FilterBar({
-  layout = "horizontal", 
+  layout = "horizontal",
   filters,
   onFilterChange,
   projectNames,
@@ -32,38 +33,24 @@ export default function FilterBar({
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Project Name
           </label>
-          <select
-            name="projectName"
-            value={filters.projectName}
-            onChange={handleChange}
-            className="w-full border rounded px-2 py-1"
-          >
-            <option value="">All Projects</option>
-            {projectNames.map((name) => (
-              <option key={name} value={name}>
-                {name}
-              </option>
-            ))}
-          </select>
+          <CheckboxDropdown
+            label="Project Name"
+            options={projectNames}
+            selectedOptions={filters.projectName || []}
+            onChange={(vals) => onFilterChange("projectName", vals)}
+          />
         </div>
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             User Name
           </label>
-          <select
-            name="userName"
-            value={filters.userName}
-            onChange={handleChange}
-            className="w-full border rounded px-2 py-1"
-          >
-            <option value="">All Users</option>
-            {userNames.map((name) => (
-              <option key={name} value={name}>
-                {name}
-              </option>
-            ))}
-          </select>
+          <CheckboxDropdown
+            label="User Name"
+            options={userNames}
+            selectedOptions={filters.userName || []}
+            onChange={(vals) => onFilterChange("userName", vals)}
+          />
         </div>
 
         {/* Start Date */}
@@ -117,52 +104,32 @@ export default function FilterBar({
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Status
           </label>
-          <select
-            id="taskStatus"
-            name="taskStatus"
-            value={filters.taskStatus || ""}
-            onChange={handleChange}
-            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
-          >
-            <option value="">All Statuses</option>
-            <option value="HR">HR</option>
-            <option value="Recurring Tasks">Recurring Tasks</option>
-            <option value="Backlog">Backlog</option>
-            <option value="Todo">Todo</option>
-            <option value="In Progress">In Progress</option>
-            <option value="Dev QC">Dev QC</option>
-            <option value="QA">QA</option>
-            <option value="Rework">Rework</option>
-            <option value="Reopen Bug">Reopen Bug</option>
-            <option value="Bug Resolved">Bug Resolved </option>
-            <option value="Done">Done</option>
-            <option value="In Review">In Review</option>
-            <option value="On Hold">On Hold</option>
-          </select>
+          <CheckboxDropdown
+            label="Status"
+            options={[
+              "HR",
+              "Recurring Tasks",
+              "Backlog",
+              "Todo",
+              "In Progress",
+              "Dev QC",
+              "QA",
+              "Rework",
+              "Reopen Bug",
+              "Bug Resolved",
+              "Done",
+              "In Review",
+              "On Hold",
+            ]}
+            selectedOptions={filters.taskStatus || []}
+            onChange={(vals) => onFilterChange("taskStatus", vals)}
+          />
         </div>
-      </div>
 
-      {/* Buttons */}
-      {/* <div className={buttonsContainer}>
-        <button
-          onClick={onDownload}
-          className="flex items-center px-3 py-2 border rounded bg-primary-600 text-white"
-        >
-          <Download className="w-4 h-4 mr-1" /> Download
+        <button onClick={onReload} className="w-1/4 px-2 py-1 bg-red-700 hover:bg-red-800 text-white rounded">
+          Reset
         </button>
-        <button
-          onClick={onReload}
-          className="flex items-center px-3 py-2 border rounded bg-white text-dark-700"
-        >
-          <RotateCcw className="w-4 h-4 mr-1" /> Clear Filters
-        </button>
-        <button
-          onClick={onSync}
-          className="flex items-center px-3 py-2 border rounded bg-primary-600 text-white"
-        >
-          <FaSyncAlt className="w-4 h-4 mr-1" /> Sync
-        </button>
-      </div> */}
+      </div>
     </div>
   );
 }
