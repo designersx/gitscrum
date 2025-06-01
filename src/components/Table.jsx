@@ -1,6 +1,5 @@
 import "../App.css";
 export default function Table({ data, onTimelogStatusChange }) {
-  console.log("data", data);
   return (
     <div
       className="   

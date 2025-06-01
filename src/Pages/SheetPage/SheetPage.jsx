@@ -7,6 +7,7 @@ import {
   getDataButton,
   getTaskList,
   getTodoList,
+  syncTodoList,
   updateTimelogStatus,
 } from "../../lib/store";
 import * as XLSX from "xlsx";
@@ -168,7 +169,7 @@ export default function SheetPage() {
     setLoader(true);
     try {
       const apiData = await getTaskList();
-      console.log("dasdadadadsa", apiData);
+      // console.log("dasdadadadsa", apiData);
       const normalized = normalizeData(apiData);
       setData(normalized);
       setFilteredData(normalized);
@@ -393,6 +394,44 @@ export default function SheetPage() {
       setLoader(false);
     }
   }, []);
+
+  const onSyncTodo = useCallback(async () => {
+    const { isConfirmed } = await Swal.fire({
+      title: "This Todo sync can take 5-7 minutes",
+      text: "Do you want to continue?",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Yes, start Todo sync",
+      cancelButtonText: "Cancel",
+      reverseButtons: true,
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+    });
+    if (!isConfirmed) return;
+
+    Swal.fire({
+      title: "Syncing Todos…",
+      html: "Please do not close or refresh the page.",
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      didOpen: () => Swal.showLoading(),
+    });
+
+    try {
+      // Call your different API here for Todo sync
+      await syncTodoList(payload); // <-- Your new API call function
+      await fetchTodoData();
+      Swal.close();
+      Swal.fire({
+        title: "Done!",
+        text: "Todo sync completed successfully 😊",
+        icon: "success",
+      });
+    } catch (err) {
+      Swal.close();
+      Swal.fire({ title: "Error", text: err.message, icon: "error" });
+    }
+  }, [fetchTodoData]);
 
   // --- toggle Todo view & persist highlight ---
   const toggleTodo = useCallback(async () => {
@@ -699,10 +738,11 @@ export default function SheetPage() {
 
                 {/* Sync */}
                 <button
-                  onClick={onSync}
+                  onClick={showTodoTable ? onSyncTodo : onSync}
                   className="flex items-center px-3 py-2 bg-blue-600 text-white rounded"
                 >
-                  <FaSyncAlt className="mr-1" /> Sync
+                  <FaSyncAlt className="mr-1" />{" "}
+                  {showTodoTable ? "Sync Todo" : "Sync"}
                 </button>
 
                 {/* Todo‐specific actions */}
@@ -856,7 +896,10 @@ export default function SheetPage() {
 
                 {/* Todo table */}
                 <table className="table-auto w-max divide-y divide-gray-200">
-                  <thead style={{zIndex:"1"}} className="sticky top-0 z-5 bg-gray-50 border-b-2 border-gray-200">
+                  <thead
+                    style={{ zIndex: "1" }}
+                    className="sticky top-0 z-5 bg-gray-50 border-b-2 border-gray-200"
+                  >
                     <tr className="sticky top-0 bg-gray-50 z-10">
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         User
@@ -928,7 +971,10 @@ export default function SheetPage() {
                                   {total}
                                 </td>
                               )}
-                              <td style={{ minWidth: '250px', maxWidth: '350px' }} className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 tooltip">
+                              <td
+                                style={{ minWidth: "250px", maxWidth: "350px" }}
+                                className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 tooltip"
+                              >
                                 {t.taskName.length > 20
                                   ? t.taskName.slice(0, 20) + "…"
                                   : t.taskName}
