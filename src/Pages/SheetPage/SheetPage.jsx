@@ -56,7 +56,7 @@ export default function SheetPage() {
   const [todoData, setTodoData] = useState([]);
 
   const [filteredData, setFilteredData] = useState([]);
-  // console.log(filteredData, "filtered Data");
+  console.log("filtredData", filteredData);
   const [filters, setFilters] = useState(() => {
     const saved = localStorage.getItem("filters");
     return saved
@@ -70,6 +70,7 @@ export default function SheetPage() {
           taskStatus: "",
         };
   });
+
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 50;
@@ -633,8 +634,15 @@ export default function SheetPage() {
   }
 
   // total estimate
+  const uniqueIds = new Set();
   const totalEstimate = currentItems
-    .reduce((sum, item) => sum + (parseFloat(item?.estimate) || 0), 0)
+    .reduce((sum, item) => {
+      if (!uniqueIds.has(item.id)) {
+        uniqueIds.add(item.id);
+        return sum + (parseFloat(item?.estimate) || 0);
+      }
+      return sum; // skip duplicates
+    }, 0)
     .toFixed(1);
 
   const totalActualSpent = currentItems
@@ -687,19 +695,13 @@ export default function SheetPage() {
 
       {/* Page content */}
       <div className="min-h-screen bg-gray-50 text-gray-800">
-        <div
-          style={{ paddingBottom: "0px" }}
-          className="max-w-7xl mx-auto px-4 py-8"
-        >
+        <div className="max-w-7xl mx-auto px-4 pt-5">
           <Header />
 
           {/* Top action bar */}
 
           {/* Top action bar */}
-          <div
-            style={{ paddingBottom: "15px" }}
-            className="z-10 flex items-center space-x-3 mb-4 table-todo-header"
-          >
+          <div className="z-10 flex items-center space-x-3 mb-2 table-todo-header">
             {showTodoTable ? (
               <>
                 {/* Todo filters */}
@@ -769,43 +771,59 @@ export default function SheetPage() {
               </>
             ) : (
               <>
-                {/* Sidebar‐filter icon */}
-                <button
-                  onClick={() => setSidebarOpen(true)}
-                  className="p-2 bg-blue-600 text-white rounded"
-                >
-                  <Filter />
-                </button>
+                <div className="flex items-center justify-between space-x-4 w-full">
+                  {/* Left side: buttons */}
+                  <div className="flex items-center space-x-3">
+                    {/* Sidebar-filter icon */}
+                    <button
+                      onClick={() => setSidebarOpen(true)}
+                      className="p-2 bg-blue-600 text-white rounded"
+                    >
+                      <Filter />
+                    </button>
 
-                {/* Sync */}
-                <button
-                  onClick={onSync}
-                  className="flex items-center px-3 py-2 bg-blue-600 text-white rounded"
-                >
-                  <FaSyncAlt className="mr-1" /> Sync
-                </button>
+                    {/* Sync */}
+                    <button
+                      onClick={onSync}
+                      className="flex items-center px-3 py-2 bg-blue-600 text-white rounded"
+                    >
+                      <FaSyncAlt className="mr-1" /> Sync
+                    </button>
 
-                {/* Timesheet‐specific actions */}
-                <button
-                  onClick={handleDownload}
-                  className="flex items-center px-3 py-2 bg-green-600 text-white rounded"
-                >
-                  <Download className="mr-1" /> Download
-                </button>
-                <button
-                  onClick={handleReload}
-                  className="flex items-center px-3 py-2 bg-gray-600 text-white rounded"
-                >
-                  <RotateCcw className="mr-1" /> Clear Filters
-                </button>
+                    {/* Download */}
+                    <button
+                      onClick={handleDownload}
+                      className="flex items-center px-3 py-2 bg-green-600 text-white rounded"
+                    >
+                      <Download className="mr-1" /> Download
+                    </button>
 
-                {/* Toggle to Todo */}
-                <button
-                  onClick={toggleTodo}
-                  className="px-3 py-2 bg-blue-600 text-white rounded"
-                >
-                  Todo
-                </button>
+                    {/* Clear Filters */}
+                    <button
+                      onClick={handleReload}
+                      className="flex items-center px-3 py-2 bg-gray-600 text-white rounded"
+                    >
+                      <RotateCcw className="mr-1" /> Clear Filters
+                    </button>
+
+                    {/* Toggle to Todo */}
+                    <button
+                      onClick={toggleTodo}
+                      className="px-3 py-2 bg-blue-600 text-white rounded"
+                    >
+                      Todo
+                    </button>
+                  </div>
+
+                  {/* Right side: date filters pill */}
+                  {(filters.startDate || filters.endDate) && (
+                    <span className="px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm whitespace-nowrap">
+                      {filters.startDate ? `From ${filters.startDate}` : ""}
+                      {filters.startDate && filters.endDate ? " – " : ""}
+                      {filters.endDate ? `To ${filters.endDate}` : ""}
+                    </span>
+                  )}
+                </div>
               </>
             )}
           </div>
@@ -843,6 +861,35 @@ export default function SheetPage() {
               </div>
             ) : (
               <>
+                {/* ===== Selected Filters Bar ===== */}
+                <div className="mb-4 flex flex-wrap gap-2">
+                  {filters.projectName?.length > 0 && (
+                    <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
+                      Project: {filters.projectName.join(", ")}
+                    </span>
+                  )}
+                  {filters.userName && filters.userName.length > 0 && (
+                    <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-sm">
+                      User:{" "}
+                      {Array.isArray(filters.userName)
+                        ? filters.userName.join(", ")
+                        : filters.userName}
+                    </span>
+                  )}
+                  {filters.taskStatus && filters.taskStatus.length > 0 && (
+                    <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full text-sm">
+                      Status:{" "}
+                      {Array.isArray(filters.taskStatus)
+                        ? filters.taskStatus.join(", ")
+                        : filters.taskStatus}
+                    </span>
+                  )}
+                  {filters.dateRange && (
+                    <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-sm">
+                      Last {filters.dateRange} days
+                    </span>
+                  )}
+                </div>
                 <Table
                   data={currentItems}
                   onTimelogStatusChange={handleTimelogStatusChange}
