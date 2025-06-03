@@ -7,6 +7,7 @@ import {
   getDataButton,
   getTaskList,
   getTodoList,
+  syncTodoList,
   updateTimelogStatus,
 } from "../../lib/store";
 import * as XLSX from "xlsx";
@@ -23,7 +24,9 @@ import CheckboxDropdown from "../../components/CheckboxDropdown";
 
 function normalizeData(data) {
   return data
-    .filter((item) => item.project_name !== null && item.project_name !== undefined) // Skip if project_name is null or undefined
+    .filter(
+      (item) => item.project_name !== null && item.project_name !== undefined
+    ) // Skip if project_name is null or undefined
     .map((item) => ({
       id: item.id,
       projectName: item.project_name,
@@ -53,7 +56,7 @@ export default function SheetPage() {
   const [todoData, setTodoData] = useState([]);
 
   const [filteredData, setFilteredData] = useState([]);
-  // console.log(filteredData, "filtered Data");
+  console.log("filtredData", filteredData);
   const [filters, setFilters] = useState(() => {
     const saved = localStorage.getItem("filters");
     return saved
@@ -67,6 +70,7 @@ export default function SheetPage() {
           taskStatus: "",
         };
   });
+
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 50;
@@ -166,7 +170,7 @@ export default function SheetPage() {
     setLoader(true);
     try {
       const apiData = await getTaskList();
-      console.log("dasdadadadsa", apiData);
+      // console.log("dasdadadadsa", apiData);
       const normalized = normalizeData(apiData);
       setData(normalized);
       setFilteredData(normalized);
@@ -392,6 +396,44 @@ export default function SheetPage() {
     }
   }, []);
 
+  const onSyncTodo = useCallback(async () => {
+    const { isConfirmed } = await Swal.fire({
+      title: "This Todo sync can take 5-7 minutes",
+      text: "Do you want to continue?",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Yes, start Todo sync",
+      cancelButtonText: "Cancel",
+      reverseButtons: true,
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+    });
+    if (!isConfirmed) return;
+
+    Swal.fire({
+      title: "Syncing Todos…",
+      html: "Please do not close or refresh the page.",
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      didOpen: () => Swal.showLoading(),
+    });
+
+    try {
+      // Call your different API here for Todo sync
+      await syncTodoList(payload); // <-- Your new API call function
+      await fetchTodoData();
+      Swal.close();
+      Swal.fire({
+        title: "Done!",
+        text: "Todo sync completed successfully 😊",
+        icon: "success",
+      });
+    } catch (err) {
+      Swal.close();
+      Swal.fire({ title: "Error", text: err.message, icon: "error" });
+    }
+  }, [fetchTodoData]);
+
   // --- toggle Todo view & persist highlight ---
   const toggleTodo = useCallback(async () => {
     setShowTodoTable((v) => {
@@ -442,12 +484,6 @@ export default function SheetPage() {
     // Return true if all conditions match
     return statusMatch && userNameMatch && projectNameMatch && taskStatusMatch;
   });
-
-  // const pagedTodos = allTodos.slice(
-  //   (todoPage - 1) * todoPerPage,
-  //   todoPage * todoPerPage
-  // );
-  // const todoTotalPages = Math.ceil(allTodos.length / todoPerPage);
 
   const userGroups = Object.entries(
     allTodos.reduce((acc, t) => {
@@ -541,25 +577,6 @@ export default function SheetPage() {
     saveAs(new Blob([wbout]), "TodoSheet.xlsx");
   };
 
-  // const handleTodoDownload = () => {
-  //   console.log("todo download");
-  //   if (!allTodos.length) return;
-  //   const sheet = allTodos.map((t) => ({
-  //     User: t.userName,
-  //     Project: t.projectName,
-  //     Task: t.taskName,
-  //     Estimate: t.estimate,
-  //     Start: extractDate(t.taskStartDate),
-  //     End: extractDate(t.taskDueDate),
-  //     Status: t.taskStatus,
-  //   }));
-  //   const ws = XLSX.utils.json_to_sheet(sheet);
-  //   const wb = XLSX.utils.book_new();
-  //   XLSX.utils.book_append_sheet(wb, ws, "Todos");
-  //   const wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
-  //   saveAs(new Blob([wbout]), "TodoSheet.xlsx");
-  // };
-
   // --- Main table pagination slice ---
   const idxLast = currentPage * itemsPerPage;
   const idxFirst = idxLast - itemsPerPage;
@@ -601,6 +618,36 @@ export default function SheetPage() {
     },
     [fetchData]
   );
+
+  function parseTimeToHours(timeStr) {
+    if (!timeStr) return 0;
+
+    // Match hours and minutes separately
+    const hourMatch = timeStr.match(/(\d+)\s*h/);
+    const minuteMatch = timeStr.match(/(\d+)\s*m/);
+
+    const hours = hourMatch ? parseInt(hourMatch[1], 10) : 0;
+    const minutes = minuteMatch ? parseInt(minuteMatch[1], 10) : 0;
+
+    // Convert minutes to fraction of hour and sum
+    return hours + minutes / 60;
+  }
+
+  // total estimate
+  const uniqueIds = new Set();
+  const totalEstimate = currentItems
+    .reduce((sum, item) => {
+      if (!uniqueIds.has(item.id)) {
+        uniqueIds.add(item.id);
+        return sum + (parseFloat(item?.estimate) || 0);
+      }
+      return sum; // skip duplicates
+    }, 0)
+    .toFixed(1);
+
+  const totalActualSpent = currentItems
+    .reduce((sum, item) => sum + parseTimeToHours(item?.actualSpent), 0)
+    .toFixed(1);
 
   return (
     <>
@@ -648,13 +695,13 @@ export default function SheetPage() {
 
       {/* Page content */}
       <div className="min-h-screen bg-gray-50 text-gray-800">
-        <div className="max-w-7xl mx-auto px-4 py-8">
+        <div className="max-w-7xl mx-auto px-4 pt-5">
           <Header />
 
           {/* Top action bar */}
 
           {/* Top action bar */}
-          <div className="z-10 flex items-center space-x-3 mb-4 table-todo-header">
+          <div className="z-10 flex items-center space-x-3 mb-2 table-todo-header">
             {showTodoTable ? (
               <>
                 {/* Todo filters */}
@@ -693,10 +740,11 @@ export default function SheetPage() {
 
                 {/* Sync */}
                 <button
-                  onClick={onSync}
+                  onClick={showTodoTable ? onSyncTodo : onSync}
                   className="flex items-center px-3 py-2 bg-blue-600 text-white rounded"
                 >
-                  <FaSyncAlt className="mr-1" /> Sync
+                  <FaSyncAlt className="mr-1" />{" "}
+                  {showTodoTable ? "Sync Todo" : "Sync"}
                 </button>
 
                 {/* Todo‐specific actions */}
@@ -723,43 +771,59 @@ export default function SheetPage() {
               </>
             ) : (
               <>
-                {/* Sidebar‐filter icon */}
-                <button
-                  onClick={() => setSidebarOpen(true)}
-                  className="p-2 bg-blue-600 text-white rounded"
-                >
-                  <Filter />
-                </button>
+                <div className="flex items-center justify-between space-x-4 w-full">
+                  {/* Left side: buttons */}
+                  <div className="flex items-center space-x-3">
+                    {/* Sidebar-filter icon */}
+                    <button
+                      onClick={() => setSidebarOpen(true)}
+                      className="p-2 bg-blue-600 text-white rounded"
+                    >
+                      <Filter />
+                    </button>
 
-                {/* Sync */}
-                <button
-                  onClick={onSync}
-                  className="flex items-center px-3 py-2 bg-blue-600 text-white rounded"
-                >
-                  <FaSyncAlt className="mr-1" /> Sync
-                </button>
+                    {/* Sync */}
+                    <button
+                      onClick={onSync}
+                      className="flex items-center px-3 py-2 bg-blue-600 text-white rounded"
+                    >
+                      <FaSyncAlt className="mr-1" /> Sync
+                    </button>
 
-                {/* Timesheet‐specific actions */}
-                <button
-                  onClick={handleDownload}
-                  className="flex items-center px-3 py-2 bg-green-600 text-white rounded"
-                >
-                  <Download className="mr-1" /> Download
-                </button>
-                <button
-                  onClick={handleReload}
-                  className="flex items-center px-3 py-2 bg-gray-600 text-white rounded"
-                >
-                  <RotateCcw className="mr-1" /> Clear Filters
-                </button>
+                    {/* Download */}
+                    <button
+                      onClick={handleDownload}
+                      className="flex items-center px-3 py-2 bg-green-600 text-white rounded"
+                    >
+                      <Download className="mr-1" /> Download
+                    </button>
 
-                {/* Toggle to Todo */}
-                <button
-                  onClick={toggleTodo}
-                  className="px-3 py-2 bg-blue-600 text-white rounded"
-                >
-                  Todo
-                </button>
+                    {/* Clear Filters */}
+                    <button
+                      onClick={handleReload}
+                      className="flex items-center px-3 py-2 bg-gray-600 text-white rounded"
+                    >
+                      <RotateCcw className="mr-1" /> Clear Filters
+                    </button>
+
+                    {/* Toggle to Todo */}
+                    <button
+                      onClick={toggleTodo}
+                      className="px-3 py-2 bg-blue-600 text-white rounded"
+                    >
+                      Todo
+                    </button>
+                  </div>
+
+                  {/* Right side: date filters pill */}
+                  {(filters.startDate || filters.endDate) && (
+                    <span className="px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm whitespace-nowrap">
+                      {filters.startDate ? `From ${filters.startDate}` : ""}
+                      {filters.startDate && filters.endDate ? " – " : ""}
+                      {filters.endDate ? `To ${filters.endDate}` : ""}
+                    </span>
+                  )}
+                </div>
               </>
             )}
           </div>
@@ -797,10 +861,43 @@ export default function SheetPage() {
               </div>
             ) : (
               <>
+                {/* ===== Selected Filters Bar ===== */}
+                <div className="mb-4 flex flex-wrap gap-2">
+                  {filters.projectName?.length > 0 && (
+                    <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
+                      Project: {filters.projectName.join(", ")}
+                    </span>
+                  )}
+                  {filters.userName && filters.userName.length > 0 && (
+                    <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-sm">
+                      User:{" "}
+                      {Array.isArray(filters.userName)
+                        ? filters.userName.join(", ")
+                        : filters.userName}
+                    </span>
+                  )}
+                  {filters.taskStatus && filters.taskStatus.length > 0 && (
+                    <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full text-sm">
+                      Status:{" "}
+                      {Array.isArray(filters.taskStatus)
+                        ? filters.taskStatus.join(", ")
+                        : filters.taskStatus}
+                    </span>
+                  )}
+                  {filters.dateRange && (
+                    <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-sm">
+                      Last {filters.dateRange} days
+                    </span>
+                  )}
+                </div>
                 <Table
                   data={currentItems}
                   onTimelogStatusChange={handleTimelogStatusChange}
                 />
+                <div className=" flex justify-end space-x-8 text-sm font-semibold text-gray-700">
+                  <div>Total Estimate: {totalEstimate} hrs</div>
+                  <div>Total Actual Spent: {totalActualSpent} hrs</div>
+                </div>
                 <Pagination
                   currentPage={currentPage}
                   totalPages={totalPages}
@@ -811,49 +908,89 @@ export default function SheetPage() {
                 />
               </>
             )
+          ) : loader ? (
+            <div className="w-full text-center py-10">
+              {/* spinner SVG (Tailwind + animate-spin) */}
+              <svg
+                className="animate-spin h-8 w-8 mx-auto"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                />
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8v8H4z"
+                />
+              </svg>
+              <p className="mt-2 text-gray-600">Loading…</p>
+            </div>
           ) : (
             <>
               <div
                 style={{ maxHeight: "56vh" }}
                 className="mt-8 bg-white p-0 rounded shadow"
               >
-                {/* <h2 className="text-xl mb-4">Todo Tasks by User</h2> */}
-
                 {/* Todo‐specific filters */}
 
                 {/* Todo table */}
-                <table className="min-w-full border-collapse">
-                  <thead className="todo-thead">
-                    <tr className="bg-gray-100">
-                      <th className="border px-3 py-2 text-left">User</th>
-                      <th className="border px-3 py-2">Total Hrs (Est)</th>
-                      <th className="border px-3 py-2">Task</th>
-                      <th className="border px-3 py-2">Project</th>
-                      <th className="border px-3 py-2">Start Date</th>
-                      <th className="border px-3 py-2">End Date</th>
-                      <th className="border px-3 py-2">Estimate</th>
-                      <th className="border px-3 py-2">Task Status</th>
+                <table className="table-auto w-max divide-y divide-gray-200">
+                  <thead
+                    style={{ zIndex: "1" }}
+                    className="sticky top-0 z-5 bg-gray-50 border-b-2 border-gray-200"
+                  >
+                    <tr className="sticky top-0 bg-gray-50 z-10">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        User
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Total Hrs (Est)
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Task
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Project
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Start Date
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        End Date
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Estimate
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Task Status
+                      </th>
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody className="bg-white divide-y divide-gray-200">
                     {pagedTodos.length === 0 ? (
                       <tr>
                         <td
                           colSpan={8}
-                          className="border px-3 py-2 text-center"
+                          className="px-6 py-4 text-center text-sm text-gray-500"
                         >
                           No data found
                         </td>
                       </tr>
                     ) : (
                       (() => {
-                        // group only the paged tasks
                         const grp = pagedTodos.reduce((acc, t) => {
                           (acc[t.userName] = acc[t.userName] || []).push(t);
                           return acc;
                         }, {});
                         return Object.entries(grp).flatMap(([user, tasks]) => {
-                          // sum estimates across this page for this user
                           const total = tasks
                             .reduce(
                               (s, t) => s + (parseFloat(t.estimate) || 0),
@@ -861,11 +998,14 @@ export default function SheetPage() {
                             )
                             .toFixed(1);
                           return tasks.map((t, i) => (
-                            <tr key={`${user}-${t.id}`}>
+                            <tr
+                              key={`${user}-${t.id}`}
+                              className="hover:bg-gray-50"
+                            >
                               {i === 0 && (
                                 <td
                                   rowSpan={tasks.length}
-                                  className="border px-3 py-2 font-semibold align-top"
+                                  className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900 align-top border-r border-gray-300"
                                 >
                                   {user}
                                 </td>
@@ -873,36 +1013,47 @@ export default function SheetPage() {
                               {i === 0 && (
                                 <td
                                   rowSpan={tasks.length}
-                                  className="border px-3 py-2 align-top"
+                                  className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 align-top border-r border-gray-300"
                                 >
                                   {total}
                                 </td>
                               )}
-                              <td className="border px-3 py-2 relative">
-                                <div className="tooltip-container">
-                                  {t.taskName.length > 15
-                                    ? t.taskName.slice(0, 15) + "…"
-                                    : t.taskName}
-                                  {t.taskName.length > 15 && (
-                                    <span className="tooltip-text">
-                                      {t.taskName}
-                                    </span>
-                                  )}
-                                </div>
+                              <td
+                                style={{ minWidth: "250px", maxWidth: "350px" }}
+                                className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 tooltip"
+                              >
+                                {t.taskName.length > 20
+                                  ? t.taskName.slice(0, 20) + "…"
+                                  : t.taskName}
+                                <span className="tooltiptext">
+                                  {t.taskName}
+                                </span>
                               </td>
 
-                              <td className="border px-3 py-2">
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                 {t.projectName}
                               </td>
-                              <td className="border px-3 py-2">
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                 {extractDate(t.taskStartDate) || "--"}
                               </td>
-                              <td className="border px-3 py-2">
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                 {extractDate(t.taskDueDate) || "--"}
                               </td>
-                              <td className="border px-3 py-2">{t.estimate}</td>
-                              <td className="border px-3 py-2">
-                                {t.taskStatus}
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {t.estimate}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                <span
+                                  className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                    t.taskStatus === "Completed"
+                                      ? "bg-green-100 text-green-800"
+                                      : t.taskStatus === "In Progress"
+                                      ? "bg-yellow-100 text-yellow-800"
+                                      : "bg-gray-100 text-gray-800"
+                                  }`}
+                                >
+                                  {t.taskStatus || "--"}
+                                </span>
                               </td>
                             </tr>
                           ));
@@ -913,19 +1064,6 @@ export default function SheetPage() {
                 </table>
 
                 {/* Todo pagination */}
-                {/* <div className="pagi-main">
-                <Pagination
-                  currentPage={todoPage}
-                  totalPages={todoTotalPages}
-                  paginate={setTodoPage}
-                  totalItems={allTodos.length}
-                  indexOfFirstItem={(todoPage - 1) * todoPerPage + 1}
-                  indexOfLastItem={Math.min(
-                    todoPage * todoPerPage,
-                    allTodos.length
-                  )}
-                />
-              </div> */}
               </div>
               <Pagination
                 currentPage={todoPage}
