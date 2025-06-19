@@ -56,7 +56,7 @@ export default function SheetPage() {
   const [todoData, setTodoData] = useState([]);
 
   const [filteredData, setFilteredData] = useState([]);
-  console.log("filtredData", filteredData);
+  // console.log("filtredData", filteredData);
   const [filters, setFilters] = useState(() => {
     const saved = localStorage.getItem("filters");
     return saved
@@ -70,6 +70,11 @@ export default function SheetPage() {
           taskStatus: "",
         };
   });
+
+  const [useTaskDates, setUseTaskDates] = useState(false); // Manage useTaskDates state
+  console.log("useTaskDates", useTaskDates);
+
+  console.log("filters", filters);
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -251,23 +256,41 @@ export default function SheetPage() {
         return start && end && start <= new Date() && end >= cutoff;
       });
     } else if (filters.startDate || filters.endDate) {
-      const start = filters.startDate ? new Date(filters.startDate) : null;
-      const end = filters.endDate
-        ? new Date(filters.endDate).setHours(23, 59, 59, 999)
-        : null;
-      result = result.filter((t) => {
-        const s = t.actualEffortStart ? new Date(t.actualEffortStart) : null;
-        const e = t.actualEffortEnd ? new Date(t.actualEffortEnd) : null;
-        if (!s || !e) return false;
-        if (start && end) return s >= start && e <= end;
-        if (start) return e >= start;
-        if (end) return s <= end;
-        return true;
-      });
+      if (useTaskDates === true) {
+        const start = filters.startDate
+          ? new Date(filters.startDate).setHours(0, 0, 0, 0)
+          : null;
+        const end = filters.endDate
+          ? new Date(filters.endDate).setHours(23, 59, 59, 999)
+          : null;
+        result = result.filter((t) => {
+          const s = t.taskStartDate ? new Date(t.taskStartDate) : null;
+          const e = t.taskDueDate ? new Date(t.taskDueDate) : null;
+          if (!s || !e) return false;
+          if (start && end) return s >= start && e <= end;
+          if (start) return s >= start;
+          if (end) return e <= end;
+          return true;
+        });
+      } else {
+        const start = filters.startDate ? new Date(filters.startDate) : null;
+        const end = filters.endDate
+          ? new Date(filters.endDate).setHours(23, 59, 59, 999)
+          : null;
+        result = result.filter((t) => {
+          const s = t.actualEffortStart ? new Date(t.actualEffortStart) : null;
+          const e = t.actualEffortEnd ? new Date(t.actualEffortEnd) : null;
+          if (!s || !e) return false;
+          if (start && end) return s >= start && e <= end;
+          if (start) return e >= start;
+          if (end) return s <= end;
+          return true;
+        });
+      }
     }
     setFilteredData(result);
     setCurrentPage(1);
-  }, [filters, data]);
+  }, [filters, data, useTaskDates]);
 
   // --- main Clear & Download handlers ---
   const handleReload = () => {
@@ -281,6 +304,7 @@ export default function SheetPage() {
       taskStatus: "",
     });
     setFilteredData(data);
+    setUseTaskDates(false);
   };
   const handleFilterChange = (name, val) => {
     setFilters((f) => ({ ...f, [name]: val }));
@@ -303,6 +327,10 @@ export default function SheetPage() {
 
     return +(hours + minutes / 60).toFixed(1);
   }
+
+  const handleUseTaskDatesChange = (newState) => {
+    setUseTaskDates(newState); // Update the useTaskDates state in the parent
+  };
 
   const handleDownload = () => {
     if (!filteredData.length) return;
@@ -684,6 +712,8 @@ export default function SheetPage() {
           onReload={handleReload}
           onDownload={handleDownload}
           onSync={onSync}
+          onTaskDatesChange={handleUseTaskDatesChange}
+          useTaskDates={useTaskDates} 
         />
       </aside>
       {sidebarOpen && (
