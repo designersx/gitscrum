@@ -72,9 +72,9 @@ export default function SheetPage() {
   });
 
   const [useTaskDates, setUseTaskDates] = useState(false); // Manage useTaskDates state
-  console.log("useTaskDates", useTaskDates);
+  // console.log("useTaskDates", useTaskDates);
 
-  console.log("filters", filters);
+  // console.log("filters", filters);
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
