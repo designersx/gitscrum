@@ -62,10 +62,10 @@ export default function Table({ data, onTimelogStatusChange }) {
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                   {item.projectName || "--"}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                <td  className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                   {item.userName || "--"}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 tooltip">
+                <td style={{marginTop:"4px"}} className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 tooltip">
                   {item.taskName && item.taskName.length > 20
                     ? item.taskName.substring(0, 20) + "..."
                     : item.taskName || "--"}

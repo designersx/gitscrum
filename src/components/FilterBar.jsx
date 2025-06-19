@@ -1,6 +1,7 @@
 import { Download, RotateCcw } from "lucide-react";
 import { FaSyncAlt } from "react-icons/fa";
 import CheckboxDropdown from "./CheckboxDropdown";
+import {useState} from "react"
 
 export default function FilterBar({
   layout = "horizontal",
@@ -11,7 +12,11 @@ export default function FilterBar({
   onReload,
   onDownload,
   onSync,
+  onTaskDatesChange,
+  useTaskDates
 }) {
+
+  // const [useTaskDates, setUseTaskDates] = useState(false); 
   const isVertical = layout === "vertical";
 
   const fieldsContainer = isVertical
@@ -24,6 +29,10 @@ export default function FilterBar({
 
   const handleChange = (e) => {
     onFilterChange(e.target.name, e.target.value);
+  };
+
+ const handleToggleChange = () => {
+    onTaskDatesChange(!useTaskDates); // Pass the opposite value of useTaskDates to parent
   };
 
   return (
@@ -53,10 +62,21 @@ export default function FilterBar({
           />
         </div>
 
+        {/* Toggle for Task vs Effort Dates */}
+        <div className="flex items-center mb-4">
+          <label className="block text-sm font-medium text-gray-700 mr-2">Use Task Dates</label>
+          <input
+            type="checkbox"
+            checked={useTaskDates}  // Checkbox is controlled by the useTaskDates prop
+            onChange={handleToggleChange}
+            className="cursor-pointer"
+          />
+        </div>
+
         {/* Start Date */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Start Date
+            {useTaskDates ? "Task Start Date" : "Actual Effort Start"}
           </label>
           <input
             type="date"
@@ -70,7 +90,7 @@ export default function FilterBar({
         {/* End Date */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            End Date
+            {useTaskDates ? "Task Due Date" : "Actual Effort End"}
           </label>
           <input
             type="date"
