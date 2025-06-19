@@ -30,11 +30,29 @@ const Login = () => {
         setLoading(false);
         return;
       }
+
+      const allowedEmails = [
+        "shoryaverma.dx@gmail.com",
+        "niraj.t@designersx.com",
+        "summi.b.singh@gmail.com",
+        "ritu.beniwal@designersx.com",
+        "kush.sharma@designersx.com",
+        "ksvilkhu@gmail.com",
+        "summi@designersx.com",
+        "kulbir@designersx.com",
+      ];
       //   if (!isDesignersXEmail(email)) {
       //     setError("Only DesignersX email addresses are allowed.");
       //     setLoading(false);
       //     return;
       //   }
+      // Check if the email is one of the allowed emails
+      const emailLower = email.toLowerCase();
+      if (!allowedEmails.map(e => e.toLowerCase()).includes(emailLower)) {
+      setError("This email is not authorized to log in.");
+      setLoading(false);
+      return;
+    }
 
       try {
         const res = await sendOTP(email);
