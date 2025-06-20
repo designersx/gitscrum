@@ -4,6 +4,7 @@ import FilterBar from "../../components/FilterBar";
 import Pagination from "../../components/Pagination";
 import Table from "../../components/Table";
 import {
+  deleteComment,
   getDataButton,
   getTaskList,
   getTodoList,
@@ -55,6 +56,8 @@ export default function SheetPage() {
   const [data, setData] = useState([]);
   const [todoData, setTodoData] = useState([]);
 
+  const [globalSearch, setGlobalSearch] = useState("");
+
   const [filteredData, setFilteredData] = useState([]);
   // console.log("filtredData", filteredData);
   const [filters, setFilters] = useState(() => {
@@ -71,10 +74,10 @@ export default function SheetPage() {
         };
   });
 
-  const [useTaskDates, setUseTaskDates] = useState(false); // Manage useTaskDates state
-  // console.log("useTaskDates", useTaskDates);
+  const [useTaskDates, setUseTaskDates] = useState(false);
 
-  // console.log("filters", filters);
+  const [commentsIDs, setCommentsIDs] = useState([]);
+  console.log("selectedROws", commentsIDs);
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -288,9 +291,22 @@ export default function SheetPage() {
         });
       }
     }
+
+    // Global search
+    if (globalSearch.trim()) {
+      const searchTerm = globalSearch.toLowerCase();
+      result = result.filter((item) => {
+        const taskMatch = item.taskName?.toLowerCase().includes(searchTerm);
+        const commentMatch = item.comments?.some((c) =>
+          c.text?.toLowerCase().includes(searchTerm)
+        );
+        const userMatch = item.userName?.toLowerCase().includes(searchTerm);
+        return taskMatch || commentMatch || userMatch;
+      });
+    }
     setFilteredData(result);
     setCurrentPage(1);
-  }, [filters, data, useTaskDates]);
+  }, [filters, data, useTaskDates,globalSearch]);
 
   // --- main Clear & Download handlers ---
   const handleReload = () => {
@@ -305,6 +321,8 @@ export default function SheetPage() {
     });
     setFilteredData(data);
     setUseTaskDates(false);
+    setCommentsIDs([]);
+    setGlobalSearch("")
   };
   const handleFilterChange = (name, val) => {
     setFilters((f) => ({ ...f, [name]: val }));
@@ -677,6 +695,81 @@ export default function SheetPage() {
     .reduce((sum, item) => sum + parseTimeToHours(item?.actualSpent), 0)
     .toFixed(1);
 
+  const handleCheckboxChange = (item) => {
+    setCommentsIDs((prev) =>
+      prev.includes(item) ? prev.filter((id) => id !== item) : [...prev, item]
+    );
+  };
+
+  const handleSelectAllChange = (currentItems) => {
+    const currentIds = currentItems.map((item) => Number(item.comment_id));
+    const areAllSelected = currentIds.every((id) => commentsIDs.includes(id));
+
+    setCommentsIDs(
+      (prev) =>
+        areAllSelected
+          ? prev.filter((id) => !currentIds.includes(id)) // uncheck all
+          : [...new Set([...prev, ...currentIds])] // check all
+    );
+  };
+
+  const isAllSelected = currentItems.every((item) =>
+    commentsIDs.includes(Number(item.comment_id))
+  );
+
+  const handleDelete = async () => {
+    if (commentsIDs.length === 0) return;
+
+    const { isConfirmed } = await Swal.fire({
+      title: `Delete ${commentsIDs.length} selected item(s)?`,
+      text: `This action cannot be undone.`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Yes, delete them",
+      cancelButtonText: "Cancel",
+    });
+
+    if (!isConfirmed) return;
+
+    // Show loading modal
+    Swal.fire({
+      title: "Deleting...",
+      text: "Please wait while we delete selected items.",
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      didOpen: () => Swal.showLoading(),
+    });
+
+    try {
+      const res = await deleteComment({ commentsIDs });
+
+      // Optional: check your API response structure
+      if (res?.success || res?.status === 200) {
+        Swal.fire({
+          title: "Deleted!",
+          text: res?.message || "Selected items have been deleted.",
+          icon: "success",
+          timer: 2000,
+          showConfirmButton: false,
+        });
+
+        setCommentsIDs([]);
+        await fetchData(); // Refresh table
+      } else {
+        throw new Error(res?.message || "Unexpected response from server.");
+      }
+    } catch (err) {
+      Swal.fire({
+        title: "Error",
+        text:
+          err?.response?.data?.message ||
+          err.message ||
+          "Something went wrong.",
+        icon: "error",
+      });
+    }
+  };
+
   return (
     <>
       {loading && (
@@ -713,7 +806,7 @@ export default function SheetPage() {
           onDownload={handleDownload}
           onSync={onSync}
           onTaskDatesChange={handleUseTaskDatesChange}
-          useTaskDates={useTaskDates} 
+          useTaskDates={useTaskDates}
         />
       </aside>
       {sidebarOpen && (
@@ -815,7 +908,7 @@ export default function SheetPage() {
                     {/* Sync */}
                     <button
                       onClick={onSync}
-                      className="flex items-center px-3 py-2 bg-blue-600 text-white rounded"
+                      className="flex items-center px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded transition duration-200 ease-in-out"
                     >
                       <FaSyncAlt className="mr-1" /> Sync
                     </button>
@@ -823,7 +916,7 @@ export default function SheetPage() {
                     {/* Download */}
                     <button
                       onClick={handleDownload}
-                      className="flex items-center px-3 py-2 bg-green-600 text-white rounded"
+                      className="flex items-center px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded transition duration-200 ease-in-out"
                     >
                       <Download className="mr-1" /> Download
                     </button>
@@ -831,7 +924,7 @@ export default function SheetPage() {
                     {/* Clear Filters */}
                     <button
                       onClick={handleReload}
-                      className="flex items-center px-3 py-2 bg-gray-600 text-white rounded"
+                      className="flex items-center px-3 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded transition duration-200 ease-in-out"
                     >
                       <RotateCcw className="mr-1" /> Clear Filters
                     </button>
@@ -839,10 +932,48 @@ export default function SheetPage() {
                     {/* Toggle to Todo */}
                     <button
                       onClick={toggleTodo}
-                      className="px-3 py-2 bg-blue-600 text-white rounded"
+                      className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded transition duration-200 ease-in-out"
                     >
                       Todo
                     </button>
+                    {commentsIDs.length >= 1 ? (
+                      <button
+                        onClick={handleDelete}
+                        className="px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded transition duration-200 ease-in-out"
+                      >
+                        Delete
+                      </button>
+                    ) : (
+                      ""
+                    )}
+
+                    <div className="flex items-center space-x-3">
+  {/* Search Input with Icon */}
+  <div className="relative">
+    <input
+      type="text"
+      placeholder="Search task name, comments, or user..."
+      value={globalSearch}
+      onChange={(e) => setGlobalSearch(e.target.value)}
+      className="pl-10 pr-3 py-2 border rounded w-64 focus:outline-none focus:ring-2 focus:ring-blue-400"
+    />
+    <svg
+      className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 pointer-events-none"
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M21 21l-4.35-4.35M16.65 16.65A7.5 7.5 0 1116.65 2a7.5 7.5 0 010 14.5z"
+      />
+    </svg>
+  </div>
+</div>
+
                   </div>
 
                   {/* Right side: date filters pill */}
@@ -921,8 +1052,15 @@ export default function SheetPage() {
                   )}
                 </div>
                 <Table
-                  data={currentItems}
+                  data={currentItems.map((item) => ({
+                    ...item,
+                    isChecked: commentsIDs.includes(item.comment_id),
+                  }))}
+                  onSelectAllChange={() => handleSelectAllChange(currentItems)}
+                  isAllSelected={isAllSelected}
                   onTimelogStatusChange={handleTimelogStatusChange}
+                  commentsIDs={commentsIDs}
+                  onCheckboxChange={handleCheckboxChange}
                 />
                 <div className=" flex justify-end space-x-8 text-sm font-semibold text-gray-700">
                   <div>Total Estimate: {totalEstimate} hrs</div>
