@@ -48,11 +48,11 @@ const Login = () => {
       //   }
       // Check if the email is one of the allowed emails
       const emailLower = email.toLowerCase();
-      if (!allowedEmails.map(e => e.toLowerCase()).includes(emailLower)) {
-      setError("This email is not authorized to log in.");
-      setLoading(false);
-      return;
-    }
+      if (!allowedEmails.map((e) => e.toLowerCase()).includes(emailLower)) {
+        setError("This email is not authorized to log in.");
+        setLoading(false);
+        return;
+      }
 
       try {
         const res = await sendOTP(email);

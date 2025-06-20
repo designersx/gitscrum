@@ -1,5 +1,11 @@
 import "../App.css";
-export default function Table({ data, onTimelogStatusChange }) {
+export default function Table({
+  data,
+  onTimelogStatusChange,
+  onCheckboxChange,
+  onSelectAllChange,
+  isAllSelected,
+}) {
   return (
     <div
       className="   
@@ -12,6 +18,22 @@ export default function Table({ data, onTimelogStatusChange }) {
       <table className="table-auto w-max divide-y divide-gray-200">
         <thead className="sticky top-0 z-10 bg-gray-50 border-b-2 border-gray-200">
           <tr className="sticky top-0 bg-gray-50 z-10">
+            <th className="px-4 py-3 flex items-center space-x-2">
+              <label
+                htmlFor="select-all"
+                className="text-xs font-medium text-gray-600 cursor-pointer"
+              >
+                Select All
+              </label>
+              <input
+                type="checkbox"
+                checked={isAllSelected}
+                onChange={onSelectAllChange}
+                id="select-all"
+                style={{ cursor: "pointer" }}
+              />
+            </th>
+
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               Project Name
             </th>
@@ -59,13 +81,23 @@ export default function Table({ data, onTimelogStatusChange }) {
           {data.length > 0 ? (
             data.map((item, index) => (
               <tr key={`${item.id}-${index}`} className="hover:bg-gray-50">
+                <td className="px-4 py-4 flex justify-center">
+                  <input
+                    type="checkbox"
+                    checked={item.isChecked || false}
+                    onChange={() => onCheckboxChange(item.comment_id)}
+                  />
+                </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                   {item.projectName || "--"}
                 </td>
-                <td  className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                   {item.userName || "--"}
                 </td>
-                <td style={{marginTop:"4px"}} className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 tooltip">
+                <td
+                  style={{ marginTop: "4px" }}
+                  className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 tooltip"
+                >
                   {item.taskName && item.taskName.length > 20
                     ? item.taskName.substring(0, 20) + "..."
                     : item.taskName || "--"}
