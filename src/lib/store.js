@@ -88,9 +88,19 @@ export const syncTodoList = async (payload) => {
 };
 
 export const deleteComment = async (commentsIds) => {
-  console.log("first", commentsIds)
   const res = await axios.delete(`${URL}/delete-comments`, {
     data: commentsIds,
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
+
+  return res;
+}
+
+export const deleteTask = async (taskIds) =>{
+const res = await axios.delete(`${URL}/delete-tasks`, {
+    data: taskIds,
     headers: {
       "Content-Type": "application/json",
     },

@@ -5,6 +5,7 @@ import Pagination from "../../components/Pagination";
 import Table from "../../components/Table";
 import {
   deleteComment,
+  deleteTask,
   getDataButton,
   getTaskList,
   getTodoList,
@@ -77,7 +78,8 @@ export default function SheetPage() {
   const [useTaskDates, setUseTaskDates] = useState(false);
 
   const [commentsIDs, setCommentsIDs] = useState([]);
-  console.log("selectedROws", commentsIDs);
+  const [selectedTodoIDs, setSelectedTodoIDs] = useState([]);
+  console.log("selectedTodoIDs", selectedTodoIDs);
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -306,7 +308,7 @@ export default function SheetPage() {
     }
     setFilteredData(result);
     setCurrentPage(1);
-  }, [filters, data, useTaskDates,globalSearch]);
+  }, [filters, data, useTaskDates, globalSearch]);
 
   // --- main Clear & Download handlers ---
   const handleReload = () => {
@@ -322,7 +324,7 @@ export default function SheetPage() {
     setFilteredData(data);
     setUseTaskDates(false);
     setCommentsIDs([]);
-    setGlobalSearch("")
+    setGlobalSearch("");
   };
   const handleFilterChange = (name, val) => {
     setFilters((f) => ({ ...f, [name]: val }));
@@ -484,6 +486,7 @@ export default function SheetPage() {
   const toggleTodo = useCallback(async () => {
     setShowTodoTable((v) => {
       const next = !v;
+      setGlobalSearch("");
       if (next) {
         // Fetch Todo data from your API here
         fetchTodoData();
@@ -497,6 +500,9 @@ export default function SheetPage() {
           taskStatus: "",
         });
         setFilteredData(data);
+        setSelectedTodoIDs([]);
+        setCommentsIDs([]);
+        setGlobalSearch("");
         setCurrentPage(1);
         localStorage.removeItem("filters");
       }
@@ -527,8 +533,21 @@ export default function SheetPage() {
       todoFilters?.taskStatus?.length === 0 ||
       todoFilters?.taskStatus?.includes(t.taskStatus);
 
+    // ✅ New: apply search filter
+    const searchTerm = globalSearch.trim().toLowerCase();
+    const matchesSearch =
+      !searchTerm ||
+      t.taskName?.toLowerCase().includes(searchTerm) ||
+      t.userName?.toLowerCase().includes(searchTerm);
+
     // Return true if all conditions match
-    return statusMatch && userNameMatch && projectNameMatch && taskStatusMatch;
+    return (
+      statusMatch &&
+      userNameMatch &&
+      projectNameMatch &&
+      taskStatusMatch &&
+      matchesSearch
+    );
   });
 
   const userGroups = Object.entries(
@@ -568,6 +587,8 @@ export default function SheetPage() {
       projectName: [], // Reset to empty array
       taskStatus: [], // Reset to empty array
     });
+    setSelectedTodoIDs([]);
+    setGlobalSearch("")
     setTodoPage(1);
   };
 
@@ -770,6 +791,49 @@ export default function SheetPage() {
     }
   };
 
+  const handleDeleteSelectedTodos = async () => {
+    if (selectedTodoIDs.length === 0) return;
+
+    const { isConfirmed } = await Swal.fire({
+      title: `Delete ${selectedTodoIDs.length} Todo(s)?`,
+      text: "This action cannot be undone.",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Yes, delete them",
+      cancelButtonText: "Cancel",
+    });
+
+    if (!isConfirmed) return;
+
+    Swal.fire({
+      title: "Deleting...",
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      didOpen: () => Swal.showLoading(),
+    });
+
+    try {
+      const res = await deleteTask({ ids: selectedTodoIDs }); // <-- Your API call
+
+      Swal.close();
+      Swal.fire({
+        title: "Deleted!",
+        text: "Selected Todos have been deleted.",
+        icon: "success",
+      });
+
+      setSelectedTodoIDs([]);
+      fetchTodoData(); // Refresh the table
+    } catch (err) {
+      Swal.close();
+      Swal.fire({
+        title: "Error",
+        text: err?.response?.data?.message || err.message || "Deletion failed.",
+        icon: "error",
+      });
+    }
+  };
+
   return (
     <>
       {loading && (
@@ -824,73 +888,130 @@ export default function SheetPage() {
           {/* Top action bar */}
 
           {/* Top action bar */}
-          <div className="z-10 flex items-center space-x-3 mb-2 table-todo-header">
+          <div className="z-10  items-center space-x-3 mb-2 table-todo-header">
             {showTodoTable ? (
               <>
-                {/* Todo filters */}
-                <div style={{ width: "15%" }}>
-                  <CheckboxDropdown
-                    label="User Name"
-                    options={[...new Set(filteredData.map((d) => d.userName))]} // Get unique user names
-                    selectedOptions={todoFilters.userName}
-                    onChange={(vals) =>
-                      setTodoFilters((prev) => ({ ...prev, userName: vals }))
-                    }
-                  />
-                </div>
-                <div style={{ width: "18%" }}>
-                  <CheckboxDropdown
-                    label="Project Name"
-                    options={[
-                      ...new Set(filteredData.map((d) => d.projectName)),
-                    ]} // Get unique project names
-                    selectedOptions={todoFilters.projectName}
-                    onChange={(vals) =>
-                      setTodoFilters((prev) => ({ ...prev, projectName: vals }))
-                    }
-                  />
-                </div>
-                <div style={{ width: "15%" }}>
-                  <CheckboxDropdown
-                    label="Task Status"
-                    options={["Todo", "In Progress", "Dev QC"]} // Example of task statuses
-                    selectedOptions={todoFilters.taskStatus}
-                    onChange={(vals) =>
-                      setTodoFilters((prev) => ({ ...prev, taskStatus: vals }))
-                    }
-                  />
+                {/* Line 1: Dropdown filters */}
+                <div className="flex flex-wrap justify-between items-center gap-4 mb-4">
+                  {/* Left Side Filters */}
+                  <div
+                    className="flex flex-wrap gap-4"
+                    style={{ flex: "1 1 auto" }}
+                  >
+                    <div style={{ width: "25%" }}>
+                      <CheckboxDropdown
+                        label="User Name"
+                        options={[
+                          ...new Set(filteredData.map((d) => d.userName)),
+                        ]}
+                        selectedOptions={todoFilters.userName}
+                        onChange={(vals) =>
+                          setTodoFilters((prev) => ({
+                            ...prev,
+                            userName: vals,
+                          }))
+                        }
+                      />
+                    </div>
+                    <div style={{ width: "25%" }}>
+                      <CheckboxDropdown
+                        label="Project Name"
+                        options={[
+                          ...new Set(filteredData.map((d) => d.projectName)),
+                        ]}
+                        selectedOptions={todoFilters.projectName}
+                        onChange={(vals) =>
+                          setTodoFilters((prev) => ({
+                            ...prev,
+                            projectName: vals,
+                          }))
+                        }
+                      />
+                    </div>
+                    <div style={{ width: "25%" }}>
+                      <CheckboxDropdown
+                        label="Task Status"
+                        options={["Todo", "In Progress", "Dev QC"]}
+                        selectedOptions={todoFilters.taskStatus}
+                        onChange={(vals) =>
+                          setTodoFilters((prev) => ({
+                            ...prev,
+                            taskStatus: vals,
+                          }))
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  {/* Right Side Search */}
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="Search task name, user name"
+                      value={globalSearch}
+                      onChange={(e) => setGlobalSearch(e.target.value)}
+                      className="pl-10 pr-3 py-2 border rounded w-64 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    />
+                    <svg
+                      className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 pointer-events-none"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M21 21l-4.35-4.35M16.65 16.65A7.5 7.5 0 1116.65 2a7.5 7.5 0 010 14.5z"
+                      />
+                    </svg>
+                  </div>
                 </div>
 
-                {/* Sync */}
-                <button
-                  onClick={showTodoTable ? onSyncTodo : onSync}
-                  className="flex items-center px-3 py-2 bg-blue-600 text-white rounded"
+                {/* Line 2: Action buttons */}
+                <div
+                  style={{ marginLeft: "0px", paddingBottom: "10px" }}
+                  className="flex flex-wrap gap-3 mb-4"
                 >
-                  <FaSyncAlt className="mr-1" />{" "}
-                  {showTodoTable ? "Sync Todo" : "Sync"}
-                </button>
+                  <button
+                    onClick={showTodoTable ? onSyncTodo : onSync}
+                    className="flex items-center px-3 py-2 bg-blue-600 text-white rounded"
+                  >
+                    <FaSyncAlt className="mr-1" />
+                    {showTodoTable ? "Sync Todo" : "Sync"}
+                  </button>
 
-                {/* Todo‐specific actions */}
-                <button
-                  onClick={handleTodoClear}
-                  className="px-3 py-2 bg-gray-600 text-white rounded"
-                >
-                  Clear Todo Filters
-                </button>
-                <button
-                  onClick={handleTodoDownload}
-                  className="px-3 py-2 bg-green-600 text-white rounded"
-                >
-                  Download Todo
-                </button>
+                  <button
+                    onClick={handleTodoClear}
+                    className="px-3 py-2 bg-gray-600 text-white rounded"
+                  >
+                    Clear Todo Filters
+                  </button>
 
-                {/* Toggle back to Timesheet */}
-                <button
-                  onClick={toggleTodo}
-                  className="px-3 py-2 bg-blue-600 text-white rounded"
-                >
-                  Timesheet
-                </button>
+                  <button
+                    onClick={handleTodoDownload}
+                    className="px-3 py-2 bg-green-600 text-white rounded"
+                  >
+                    Download Todo
+                  </button>
+
+                  <button
+                    onClick={toggleTodo}
+                    className="px-3 py-2 bg-blue-600 text-white rounded"
+                  >
+                    Timesheet
+                  </button>
+
+                  {selectedTodoIDs.length > 0 && (
+                    <button
+                      onClick={handleDeleteSelectedTodos}
+                      className="px-3 py-2 bg-red-600 text-white rounded"
+                    >
+                      Delete
+                    </button>
+                  )}
+                </div>
               </>
             ) : (
               <>
@@ -948,32 +1069,31 @@ export default function SheetPage() {
                     )}
 
                     <div className="flex items-center space-x-3">
-  {/* Search Input with Icon */}
-  <div className="relative">
-    <input
-      type="text"
-      placeholder="Search task name, comments, or user..."
-      value={globalSearch}
-      onChange={(e) => setGlobalSearch(e.target.value)}
-      className="pl-10 pr-3 py-2 border rounded w-64 focus:outline-none focus:ring-2 focus:ring-blue-400"
-    />
-    <svg
-      className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 pointer-events-none"
-      xmlns="http://www.w3.org/2000/svg"
-      fill="none"
-      viewBox="0 0 24 24"
-      stroke="currentColor"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M21 21l-4.35-4.35M16.65 16.65A7.5 7.5 0 1116.65 2a7.5 7.5 0 010 14.5z"
-      />
-    </svg>
-  </div>
-</div>
-
+                      {/* Search Input with Icon */}
+                      <div className="relative">
+                        <input
+                          type="text"
+                          placeholder="Search task name, comments, or user..."
+                          value={globalSearch}
+                          onChange={(e) => setGlobalSearch(e.target.value)}
+                          className="pl-10 pr-3 py-2 border rounded w-64 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                        />
+                        <svg
+                          className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 pointer-events-none"
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M21 21l-4.35-4.35M16.65 16.65A7.5 7.5 0 1116.65 2a7.5 7.5 0 010 14.5z"
+                          />
+                        </svg>
+                      </div>
+                    </div>
                   </div>
 
                   {/* Right side: date filters pill */}
@@ -1110,7 +1230,7 @@ export default function SheetPage() {
                 {/* Todo‐specific filters */}
 
                 {/* Todo table */}
-                <table className="table-auto w-max divide-y divide-gray-200">
+                <table style={{width:"100%"}} className="table-auto w-max divide-y divide-gray-200">
                   <thead
                     style={{ zIndex: "1" }}
                     className="sticky top-0 z-5 bg-gray-50 border-b-2 border-gray-200"
@@ -1121,6 +1241,30 @@ export default function SheetPage() {
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Total Hrs (Est)
+                      </th>
+                      <th className="px-4 py-3">
+                        <input
+                          type="checkbox"
+                          checked={
+                            pagedTodos.length > 0 &&
+                            pagedTodos.every((item) =>
+                              selectedTodoIDs.includes(item.id)
+                            )
+                          }
+                          onChange={() => {
+                            const allIDs = pagedTodos.map((item) => item.id);
+                            const allSelected = allIDs.every((id) =>
+                              selectedTodoIDs.includes(id)
+                            );
+                            setSelectedTodoIDs(
+                              allSelected
+                                ? selectedTodoIDs.filter(
+                                    (id) => !allIDs.includes(id)
+                                  ) // Unselect all
+                                : [...new Set([...selectedTodoIDs, ...allIDs])] // Select all
+                            );
+                          }}
+                        />
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Task
@@ -1186,6 +1330,19 @@ export default function SheetPage() {
                                   {total}
                                 </td>
                               )}
+                              <td className="px-4 py-2 border-b-0">
+                                <input
+                                  type="checkbox"
+                                  checked={selectedTodoIDs.includes(t.id)}
+                                  onChange={() => {
+                                    setSelectedTodoIDs((prev) =>
+                                      prev.includes(t.id)
+                                        ? prev.filter((id) => id !== t.id)
+                                        : [...prev, t.id]
+                                    );
+                                  }}
+                                />
+                              </td>
                               <td
                                 style={{ minWidth: "250px", maxWidth: "350px" }}
                                 className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 tooltip"
