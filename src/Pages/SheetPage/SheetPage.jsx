@@ -172,6 +172,11 @@ export default function SheetPage() {
         apiId: "40d5eae7922e3942699b3e290c48860e5f3c",
         table: "REXPTINX",
       },
+      {
+        projectKey: "f1dcbc737031b7484c7a55a784015c0f8a2f",
+        apiId: "40d5eae7922e3942699b3e290c48860e5f3c",
+        table: "QA_Team",
+      },
     ],
   };
 
